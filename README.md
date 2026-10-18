@@ -99,6 +99,35 @@ size is not its size in the file — which is why the budget is spent on what wa
   `Content-Type` that does not parse, a `message/rfc822` part that is not a
   message, several blank lines between paragraphs.
 
+## This reader is fuzzed, and it finishes a sweep
+
+`FuzzParse` (v0.1.1) asserts no panic, a document OR an error and never
+neither, determinism — headers arrive as a map and `Meta` is built from one,
+and Go randomises map iteration on purpose — and **the limits measured on the
+output**. The unit cases check that each limit *refuses*; the fuzz target
+checks the other direction, that what came out respects what was declared,
+because a limit counted in the wrong place passes its own unit test and still
+lets the document through.
+
+**5.54M executions over 582 interesting inputs found nothing** — the richest
+coverage of the family, because MIME is text with a great deal of structure in
+it. For contrast, within the same org and the same budget:
+
+| reader | executions | interesting inputs |
+|---|---|---|
+| `email` (this) | 5.5M | **582** |
+| `fb2` | 14.3M | 431 |
+| `html` | 1.5M | 490 |
+| `latex` | 1.2M | 324 |
+| `epub` (a checksummed ZIP) | 1.8M | **32** |
+
+Those numbers are not comparable as assurance: a container refuses mutations
+before any of its own code runs, so its execution count reads better than it
+is. Six of this family's seven readers had no fuzz target at all before this
+round and the two before it; this is the last of the ones that read a format
+directly (`go-richdoc/markdown` delegates its tokenising to goldmark, which is
+fuzzed upstream).
+
 ## The rest of the family
 
 [**richdoc**](https://github.com/go-richdoc/richdoc) is the model, and its
