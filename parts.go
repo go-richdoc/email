@@ -49,7 +49,7 @@ func (r *reader) part(header map[string][]string, body []byte, depth int) ([]ric
 	}
 	switch mediaType {
 	case "text/html":
-		doc, err := html.Parse(decoded, html.Limits{MaxDepth: r.lim.MaxDepth, MaxNodes: r.lim.MaxNodes})
+		doc, err := html.Parse(decoded, htmlLimits(r.lim))
 		if err != nil {
 			return nil, fmt.Errorf("email: an HTML part: %w", err)
 		}
