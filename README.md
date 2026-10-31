@@ -83,6 +83,36 @@ gigabyte. Base64 is four characters for every three bytes, so a part's decoded
 size is not its size in the file — which is why the budget is spent on what was
 **decoded**.
 
+### ⛔ And the ceiling stops the work, not only the answer
+
+A ceiling checked while a document is *built* fires after a delegated parser has
+already allocated everything, which is a refusal that arrives too late to be a
+defence. It cost [go-richdoc/data](https://github.com/go-richdoc/data) 1.275 GB
+to refuse a 16 MiB array and
+[go-richdoc/html](https://github.com/go-richdoc/html) 96 MB to refuse a 3.2 MB
+page. Both read as correct.
+
+So the control is **ported here and committed**, not argued about: two messages
+refused by the same ceiling, the second with eight times the body of the first.
+
+| | |
+| --- | --- |
+| 200 124-byte message, refused | **18 728** bytes allocated |
+| 1 600 124-byte message, refused | **18 728** bytes allocated |
+| ratio | **1.0** |
+
+Identical to the byte. `io.LimitReader(msg.Body, MaxTotalBytes+1)` reads the
+body before anything parses it, so this reader was already right — and the
+control stays in the suite to keep it that way. An accepted message costs
+**50.2** bytes of heap per byte, which is where the figure for HTML content
+lands across this whole family.
+
+⛔ The first run of that control reported **7.3** and a defect that does not
+exist. It converted the message from a string to bytes *inside* the measured
+closure, so it was weighing a full copy: 223 528 bytes for a 200 124-byte
+message is the copy and nothing else. **An instrument has to be read before its
+reading is.**
+
 ## How it is checked
 
 - 100% of statements, **no uncovered block**, race detector on, `gofmt` and
