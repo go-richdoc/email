@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/go-richdoc/richdoc"
+	"github.com/go-richdoc/richdoc/bombtest"
 )
 
 func allocatedBy(t *testing.T, f func() (*richdoc.Document, error)) (total uint64, retained int64, err error) {
@@ -80,16 +81,25 @@ func TestTheTotalByteCeilingStopsTheWork(t *testing.T) {
 		large   = 160_000 // eight times as much
 	)
 
+	// ⛔ Through the shared gate, which asserts the refusal, holds the process
+	// to HeldAtMost and names a regression past AsksAtMost — and refuses a
+	// Bound that left any of those unanswered BEFORE the bomb allocates. The
+	// figure is this package's own: io.LimitReader bounds the body before
+	// anything parses it, so a refusal costs about 19 KB whatever the message's
+	// size, and 1 MiB names a regression the moment that stops being true.
+	bound := bombtest.Bound{
+		Why:        "MaxTotalBytes refuses the body before anything parses it",
+		AsksAtMost: 1 << 20,
+		HeldAtMost: 256 << 20,
+	}
 	cost := func(n int) uint64 {
 		src := plainOf(n)
-		total, _, err := allocatedBy(t, func() (*richdoc.Document, error) {
-			return Parse(src, Limits{MaxTotalBytes: ceiling})
+		r := bombtest.Run(t, bound, func() error {
+			_, err := Parse(src, Limits{MaxTotalBytes: ceiling})
+			return err
 		})
-		if err == nil {
-			t.Fatalf("a body of %d paragraphs against a %d byte ceiling was accepted", n, ceiling)
-		}
-		t.Logf("%d paragraphs, message %d bytes, refused: %d allocated", n, len(src), total)
-		return total
+		t.Logf("%d paragraphs, message %d bytes: %s", n, len(src), r)
+		return r.Asked
 	}
 
 	s, l := cost(small), cost(large)
